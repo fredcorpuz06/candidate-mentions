@@ -1,0 +1,150 @@
+---
+title: "candidate-text-features"
+author: "Frederick"
+date: "May 24, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE
+)
+```
+
+# Summary
+
+```{r}
+library(tidyverse)
+```
+
+# Data Description
+```{r}
+og_ads <- read_csv("./data/og_ad.csv")
+cands <- read_csv("./data/candidate_images/cand_image_data.csv")
+
+```
+
+Each row is a unique ad. Contains `ad_creative_body` (i.e. text in the ad) and meta-data on each ad
+```{r}
+text_creatives <- og_ads %>% 
+  select(ad_id, queries, funding_entity, ad_creative_body)
+head(text_creatives)
+```
+
+# Extracting Last Names
+**Assumption**: Best identifier for a candidate in text will be his/her last name.
+
+*The function below is flexible to using different identifiers for a candidate (shortened name, full name, nickname, etc). However, this first pass just uses the last name to detect a mention*
+
+```{r}
+cands2 <- cands %>% 
+  select(cand_name, party) %>% 
+  mutate(no_honorific = str_extract(cand_name, "[^,]*"),
+         last_name = str_extract(no_honorific, "[A-Za-zÀ-ÿ']+?$"))
+head(cands2)
+```
+
+Here is a sample of the `r length(cands2$last_name)` last names that we will search each ad creative for/
+```{r}
+cands2$last_name[1:100]
+```
+
+
+# Check 1 Ad Creative Body for a Candidate Mention
+Each Ad Creative Body will be searched for all possible candidate names
+```{r}
+findMentions <- function(df_ad, identifiers, full_names) {
+  # Finds mentions of a person's name in text.
+  #
+  # Returns:
+  #   Dataframe where each row is an instance where an identifier was
+  #   matched somewhere in the text
+  ad_text <- df_ad$ad_creative_body
+  mentioned <- sapply(identifiers, function(x) str_detect(ad_text, x))
+  mask <- which(unname(mentioned))
+  hits <- identifiers[mask]
+  mentions <- full_names[mask]
+  n_rows <- length(mentions)
+  df_ad$temp_id <- c(1)
+  if(length(mask) == 0) {
+    rez <- tibble(temp_id = rep(1, 1), 
+                      hits = c(NA),
+                      mentions = c(NA))
+    
+  } else {
+    rez <- tibble(temp_id = rep(1, n_rows),
+                      hits = hits,
+                      mentions = mentions)
+  }
+  rez_meta <- full_join(df_ad, rez, by = "temp_id") %>% 
+    select(-temp_id)
+  return(rez_meta)
+  
+}
+
+
+```
+
+For example, here is 1 ad and its text
+```{r}
+my_sample <- 28
+df_ad <- text_creatives[my_sample, ]
+print(df_ad)
+print(df_ad$ad_creative_body)
+```
+
+Here is the result for an ad that contains mentions
+```{r}
+identifier <- cands2$last_name
+full_names <- cands2$cand_name
+rez <- findMentions(df_ad, identifier, full_names)
+print(rez)
+print(rez$hits)
+print(rez$mentions)
+```
+
+Here is one ad where there are no mentions found
+```{r}
+my_sample <- 1
+df_ad <- text_creatives[my_sample, ]
+print(df_ad$ad_creative_body)
+findMentions(df_ad, identifier, full_names)
+```
+
+
+
+# Run for Sample of OG Ads
+Let's run this code on a larger sample of OG ads.
+```{r}
+sample_candidate_mentions <- text_creatives[1:50, ] %>% 
+  group_by(ad_id) %>% 
+  nest %>% 
+  mutate(mentions = map(data, findMentions,
+                        identifiers = identifier, 
+                        full_names = full_names)) %>% 
+  select(-data) %>% 
+  unnest
+head(sample_candidate_mentions, 50)
+```
+
+# Initial reactions
+This is not robust to people with the same last names. There are 8 people with last name of Nelson.
+
+Eventually, this can be extended to account for people with common last names by having a more specific identifier (full name). Also, nick names of people can be included in order to get more hits.
+
+# Running on Larger Sample Data + Exporting
+Running on 2000 ads took ~ 90 seconds
+```{r}
+# all_candidate_mentions <- text_creatives[1:2000] %>% 
+#   group_by(ad_id) %>% 
+#   nest %>% 
+#   mutate(mentions = map(data, findMentions,
+#                         identifiers = last_names, 
+#                         full_names = full_names)) %>% 
+#   select(-data) %>% 
+#   unnest
+# write.csv(all_candidate_mentions, "./output/candidate_mentions_regex2000.csv")
+```

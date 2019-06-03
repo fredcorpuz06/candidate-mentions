@@ -1,0 +1,9 @@
+scratch.*
+data/candidate_images
+data/og_ad_media/
+data/textsim_queries/
+*.pyc
+__pycache__/
+.ipynb_checkpoints/
+.vscode/
+candidate_mentions_regex2000.csv
