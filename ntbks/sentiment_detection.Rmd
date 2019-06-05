@@ -1,0 +1,227 @@
+---
+title: "sentiment_detection"
+author: "Frederick"
+date: "June 4, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE
+)
+```
+
+```{r}
+mtcars %>% 
+  mutate(fred = cyl >5)
+```
+
+```{r}
+library(scales))
+library(tidyverse)
+theme_set(theme_light())
+
+og_ads <- read_csv("../data/textsim_queries/og_ad.csv")
+cands <- read_csv("../data/candidate_images/cand_image_data.csv")
+# issues <- read.dta("../data/Stage1_5.0_mergedfreq_052819.dta")
+
+```
+
+
+* Queried over 2 days (3/18/2019 - 3/19/2018)
+* 674 distinct funding entities (top heavy, can fct_lump)
+* 801 unique page_id/page_name
+* 52,615 unique ads
+* Impression: number of people impacted by ad?
+  * most ads have number of impressions: have some outliers who are huge
+* All but two are currency US
+
+
+```{r}
+last_day <- as.POSIXct("2019-03-19 23:59:59", format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
+# Democratic Congressional Campaign Committee
+# National Republican Congressional Committee
+big_groups <- c("Priorities USA Action", "NRCC", "DCCC", 
+                "Senate Leadership Fund", "Senate Majority PAC","SMP",
+                "House Majority PAC", "Congressional Leadership Fund", 
+                "Forward Majority Action", "Majority Forward",
+                "Americans for Prosperity", "AFP")
+
+
+big_groups_pat <- paste0("(?i)(", paste0(c(big_groups), collapse = ")|("), ")(?-i)")
+big_groups_pat
+not_authorized_pat <- "(and|\\.|,) (?i)(not authorized by|(not affiliated with))(?-i) (.)*$"
+
+distinct_ads <- og_ads %>% 
+  distinct(ad_id, page_id, .keep_all = TRUE) %>% 
+  replace_na(list(ad_delivery_stop_time = last_day)) %>% 
+  mutate(hours_up = as.numeric(ad_delivery_stop_time - ad_delivery_start_time),
+         impressions_mean = (impressions.lower_bound + impressions.upper_bound) / 2) %>% 
+  select(ad_id, page_id, page_name, funding_entity, ad_creative_body,hours_up, impressions_mean)
+
+ad_funds_clean <- distinct_ads %>% 
+  mutate(not_authorized = str_extract(funding_entity, not_authorized_pat),
+         not_authorized = str_detect(not_authorized, "[a-z]"),
+         clean_entities1 = str_extract(funding_entity, big_groups_pat),
+         clean_entities1 = coalesce(clean_entities1, "Other"),
+         clean_entities1 = case_when(
+           clean_entities1 == "HOUSE MAJORITY PAC" ~ "House Majority PAC",
+           clean_entities1 == "Americans For Prosperity"  ~ "Americans for Prosperity",
+           clean_entities1 == "AFP"  ~ "Americans for Prosperity",
+           clean_entities1 == "SENATE LEADERSHIP FUND" ~ "Senate Leadership Fund",
+           clean_entities1 == "SMP" ~ "Senate Majority PAC",
+           TRUE ~ clean_entities1
+         )) %>% 
+  select(-funding_entity) %>% 
+  rename(funding_entity = clean_entities1)
+  
+
+
+
+ad_funds_clean %>% 
+  ggplot(aes(impressions_mean)) +
+  geom_histogram(bins = 40) +
+  scale_x_log10(labels = comma_format()) +
+  labs(title = "How many people do the ads reach (impressions)?",
+       x = "Mean No. of impressions",
+       y = "")
+
+ad_funds_clean %>% 
+  ggplot(aes(hours_up)) +
+  geom_histogram(bins = 40) +
+  scale_x_log10(labels = comma_format())  + 
+  labs(title = "How many hours are ads left up?") 
+
+ad_funds_clean %>% 
+  select(hours_up, impressions_mean, funding_entity) %>% 
+  group_by(funding_entity) %>% 
+  mutate(n_ads = n()) %>% 
+  ungroup() %>% 
+  mutate(ind = row_number(),
+         funding_entity = fct_reorder(funding_entity, n_ads)) %>% 
+  gather("var", "value", -ind, -funding_entity) %>% 
+  mutate(var = fct_relevel(var, "n_ads", "hours_up", "impressions_mean")) %>% 
+  ggplot(aes(funding_entity, value)) +
+  geom_boxplot() +
+  scale_y_log10(labels = comma_format())  + 
+  coord_flip() + 
+  facet_wrap(~ var, scales = "free_x") +
+  labs(title = "Distribution of Ads by Group",
+       subtitle = "Groups w/ less than 120 ads lumped into others",
+       x = "Major Funding Entities",
+       y = "")
+
+
+```
+
+```{r}
+by_funds <- ad_funds_clean %>% 
+  group_by(funding_entity) %>% 
+  summarise(n_ads = n(), 
+            hours_up = mean(hours_up, na.rm = TRUE),
+            impressions_mean = mean(impressions_mean, na.rm = TRUE)) %>% 
+  mutate(funding_entity = fct_reorder(funding_entity, n_ads))
+
+by_funds %>% 
+  gather("var", "value", -funding_entity) %>% 
+  mutate(var = fct_relevel(var, "n_ads", "hours_up", "impressions_mean")) %>% 
+  ggplot(aes(funding_entity, value)) +
+  geom_col() + 
+  coord_flip() + 
+  facet_wrap(~ var, scales = "free_x") + 
+  labs(title = "Ads by Group",
+       subtitle = "Groups w/ less than 120 ads lumped into others",
+       x = "Major Funding Entities",
+       y = "")
+
+```
+
+
+
+
+# Text Analysis
+
+What words are in ads that are up the longest? Impact the most number of people?
+```{r}
+library(widyr)
+library(igraph)
+library(ggraph)
+library(tidytext)
+
+ad_words <- ad_funds_clean %>% 
+  mutate(idx = row_number()) %>% 
+  unnest_tokens(word, ad_creative_body) %>% 
+  anti_join(stop_words, by = "word") %>% 
+  filter(str_detect(word, "[a-z]")) %>% 
+  select(idx, word, funding_entity, page_name, hours_up, impressions_mean) %>% 
+  distinct(idx, word, .keep_all = TRUE) 
+
+ad_words %>% 
+  group_by(funding_entity) %>% 
+  count(word, sort = TRUE) %>% 
+  top_n(10, n) %>% 
+  ggplot(aes(word,n)) +
+  geom_col() + 
+  coord_flip() +
+  facet_wrap(~ funding_entity, scales = "free") + 
+  labs(title = "Most common words in ads by funding entity",
+       x = "", 
+       y = "")
+
+```
+
+
+```{r}
+ad_words_filtered <- ad_words %>% 
+  add_count(word) %>% 
+  filter(n > 800)
+ad_words_filtered %>% distinct(word)
+
+top_word_cors <- ad_words_filtered %>% 
+  select(idx, word) %>% 
+  widyr::pairwise_cor(word, idx, sort = TRUE) %>% 
+  head(200)
+
+calculate_mode <- function(x) {
+  uniqx <- unique(x)
+  uniqx[which.max(tabulate(match(x, uniqx)))]
+}
+
+ad_words_meta <- ad_words %>% 
+  filter(word %in% top_word_cors$item1 |
+           word %in% top_word_cors$item2) %>% 
+  group_by(word) %>% 
+  summarize(hours_up = exp(mean(log(hours_up), na.rm = TRUE)),
+            impressions_mean = exp(mean(log(impressions_mean), na.rm = TRUE)),
+            funding_entity = calculate_mode(funding_entity)) 
+
+mean(ad_words_meta$impressions_mean)
+
+set.seed(12)
+top_word_cors %>% 
+  graph_from_data_frame(vertices = ad_words_meta) %>%
+  ggraph() +
+  geom_edge_link() +
+  # geom_node_point(aes(size = hours_up * 1.1)) +
+  geom_node_point(aes(size = hours_up,
+                      color = impressions_mean)) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  scale_color_gradient2(low = "blue",
+                        high = "red",
+                        midpoint = 3000) + 
+  theme_void() +
+  labs(title = "What's hot and what's not in Political Ad Text?",
+       subtitle = "Color shows the geometric mean of ad impressions",
+       size = "Campaign Duration (hrs)",
+       color = "No. of Impressions")
+
+
+
+ggplot(aes(n)) +
+  geom_histogram(bins = 40) + 
+  scale_x_log10(labels = comma_format())
+```
+

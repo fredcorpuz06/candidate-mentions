@@ -22,8 +22,8 @@ library(tidyverse)
 
 # Data Description
 ```{r}
-og_ads <- read_csv("./data/og_ad.csv")
-cands <- read_csv("./data/candidate_images/cand_image_data.csv")
+og_ads <- read_csv("../data/textsim_queries/og_ad.csv")
+cands <- read_csv("../data/candidate_images/cand_image_data.csv")
 
 ```
 
