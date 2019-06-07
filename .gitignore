@@ -1,7 +1,7 @@
 scratch.*
-data/candidate_images
-data/og_ad_media/
-data/textsim_queries/
+data/candidate-images
+data/og-ad-media/
+data/textsim-queries/
 *.xlsx
 *.dta
 *.pyc

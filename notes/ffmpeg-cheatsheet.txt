@@ -1,5 +1,0 @@
-ffmpeg -y -i highFPS.mp4 -vf "setpts=1.25*PTS" -r 10 lowerFPS10.mp4
-
-ffmpeg -y -i longer.mp4 -ss 00:00:05 -t 00:00:06 -async 1 shorter.mp4
-
-ffmpeg -y -i ./og_ad_media/1007508692754656_video0.mp4 -vf "setpts=1.25*PTS" -r 10 kim_schrier.mp4
