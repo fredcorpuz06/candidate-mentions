@@ -225,3 +225,6 @@ ggplot(aes(n)) +
   scale_x_log10(labels = comma_format())
 ```
 
+
+* CRP ads: who is pouring money into advertising (with page_id)
+* 7 groups or
