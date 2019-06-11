@@ -22,9 +22,8 @@ if (length(args)==0) {
 query_fp = args[1]
 out_fp = args[2]
 
-con <- file(query_fp, open = "r")
-my_query <- readLines(con, n = 1, warn = FALSE)
-close(con)
+my_query <- read_lines(query_fp)
+my_query <- paste0(my_query, collapse = " ")
 
 msg <- paste("Query being run is in:", query_fp)
 print(msg)

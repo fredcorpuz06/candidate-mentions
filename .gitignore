@@ -1,7 +1,11 @@
 scratch.*
+config/
 data/candidate-images
 data/og-ad-media/
 data/textsim-queries/
+data/*.docx
+data/tv-ads-kantar-meta
+data/tv-ads-kantar
 *.xlsx
 *.dta
 *.pyc

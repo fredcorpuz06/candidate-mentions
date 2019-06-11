@@ -3,3 +3,10 @@ ffmpeg -y -i highFPS.mp4 -vf "setpts=1.25*PTS" -r 10 lowerFPS10.mp4
 ffmpeg -y -i longer.mp4 -ss 00:00:05 -t 00:00:06 -async 1 shorter.mp4
 
 ffmpeg -y -i ./og_ad_media/1007508692754656_video0.mp4 -vf "setpts=1.25*PTS" -r 10 kim_schrier.mp4
+
+# set bitrate = 128 kb/ + set sampling rate to 48000 Hz + audio channels = 1
+ffmpeg -y -i ./data/tv-ads-kantar/GOV_CA_COX_FAKE_NEWS_15.wmv -vn -f flac -ar 48000 -ab 128000 -ac 1 ./data/tv-ads-kantar/GOV_CA_COX_FAKE_NEWS_15.flac
+ffmpeg -y -i ./data/tv-ads-kantar/GOV_AK_AOD_FLIP_FLOPPED.wmv -vn -f flac -ar 48000 -ab 128000 -ac 1 ./data/tv-ads-kantar/GOV_AK_AOD_FLIP_FLOPPED.flac
+ffmpeg -y -i ./data/tv-ads-kantar/GOV_AK_BEGICH_JACOB.wmv -vn -f flac -ar 48000 -ab 128000 -ac 1 ./data/tv-ads-kantar/GOV_AK_BEGICH_JACOB.flac
+
+

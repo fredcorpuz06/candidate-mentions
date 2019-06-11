@@ -14,19 +14,15 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r}
-mtcars %>% 
-  mutate(fred = cyl >5)
-```
 
 ```{r}
-library(scales))
+library(scales)
 library(tidyverse)
 theme_set(theme_light())
 
 og_ads <- read_csv("../data/textsim_queries/og_ad.csv")
 cands <- read_csv("../data/candidate_images/cand_image_data.csv")
-# issues <- read.dta("../data/Stage1_5.0_mergedfreq_052819.dta")
+
 
 ```
 
