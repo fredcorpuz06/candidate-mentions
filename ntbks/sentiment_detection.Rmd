@@ -20,8 +20,8 @@ library(scales)
 library(tidyverse)
 theme_set(theme_light())
 
-og_ads <- read_csv("../data/textsim_queries/og_ad.csv")
-cands <- read_csv("../data/candidate_images/cand_image_data.csv")
+og_ads <- read_csv("../data/textsim-queries/og_ad.csv")
+# cands <- read_csv("../data/candidate_images/cand_image_data.csv")
 
 
 ```
@@ -166,6 +166,32 @@ ad_words %>%
   labs(title = "Most common words in ads by funding entity",
        x = "", 
        y = "")
+
+ad_words %>% 
+  count(word, funding_entity, sort = TRUE) %>% 
+  mutate(direction = case_when(
+    funding_entity %in% c("House Majority PAC", "Senate Majority PAC") ~ -2,
+    TRUE ~ 1
+  ),
+  n = direction * n) %>% 
+  group_by(direction) %>% 
+  top_n(10, abs(n)) %>% 
+  ungroup() %>% 
+  group_by(word) %>% 
+  summarize(n = sum(n),
+            direction = first(direction)) %>% 
+  ungroup() %>% 
+  mutate(word = fct_reorder(word, n)) %>% 
+  ggplot(aes(word, n, fill = factor(direction))) +
+  geom_col() + 
+  coord_flip() +
+  theme(legend.position = "none") + 
+  labs(title = "If you're reading this you're very attentive",
+       subtitle = "This graph wishes that it had real data on it",
+       x = "",
+       y = "")
+  
+
 
 ```
 
