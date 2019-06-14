@@ -79,16 +79,6 @@ write_csv(filtered_ads, "../data/tv_ads_attack.csv")
 ```
 
 
-## Workflow
-
-* Get ad text (GCP)
-* POS and NER to remove words not useful to sentiment
-* Create corpus of lemmatized words
-* Run Lasso Regression (Naive Bayes, SVM) with target var = ad_tone 
-  * ad_tone: 1=Contrast, 2=Promote, 3=Attack, 4=Other, please explain (option 4 - Fb & state leg coding only)
-
-
-
 
 
 

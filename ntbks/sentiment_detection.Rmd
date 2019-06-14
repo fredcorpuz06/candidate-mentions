@@ -21,7 +21,7 @@ library(tidyverse)
 theme_set(theme_light())
 
 og_ads <- read_csv("../data/textsim-queries/og_ad.csv")
-# cands <- read_csv("../data/candidate_images/cand_image_data.csv")
+
 
 
 ```
