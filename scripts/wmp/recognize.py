@@ -16,3 +16,17 @@ The module structure is the following:
 '''
 
 # Authors: Frederick Corpuz
+
+class Namefinder:
+
+    def __init__(self):
+        pass
+
+
+class FaceRecognizer:
+
+    def __init__(self):
+        pass
+
+class VideoAnnotator:
+    pass
