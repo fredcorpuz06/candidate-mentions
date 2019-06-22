@@ -6,6 +6,8 @@ data/textsim-queries/
 data/*.docx
 data/tv-ads-kantar-meta
 data/tv-ads-kantar
+data/lfw
+data/wmp-coded
 *.xlsx
 *.dta
 *.pyc
@@ -13,4 +15,5 @@ __pycache__/
 .ipynb_checkpoints/
 .vscode/
 candidate_mentions_regex2000.csv
-automated-coding.pdf
+automated_coding.pdf
+*.egg-info/

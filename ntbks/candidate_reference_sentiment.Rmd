@@ -1,0 +1,171 @@
+---
+title: "candidate_reference_sentiment"
+author: "Frederick"
+date: "6/19/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(haven)
+library(tidyverse)
+library(scales)
+theme_set(theme_light())
+
+tvads <- read_dta("../data/wmp-coded/tvads_kantar_cmag.dta")
+tvads_mentions <- tvads %>% 
+  select(congmt:reagan) %>% 
+  filter(rowSums(is.na(.)) != ncol(.)) %>% 
+  mutate(ad_id = row_number())
+
+tvads_mentions %>%
+  count(rowSums(is.na(.)))
+```
+
+
+
+Coding for candidate sentiment is either:
+* Complete for all 13 political entities
+* Missing for all 13 political entities
+* Only present for `congmt` and `washmt`
+
+# Exploring how many positive mentions there are
+```{r}
+tvads_count <- tvads_mentions %>% 
+  gather("entity", "mention_code", -ad_id) %>% 
+  count(entity, mention_code) %>% 
+  filter(mention_code != 0) %>% 
+  mutate(mention_code = factor(mention_code,
+                               levels = c("1", "2", "3"),s
+                               labels = c("Approve", "Disapprove", "Unclear")),
+         entity = fct_reorder(entity, n, sum))
+  
+tvads_count %>% 
+  ggplot(aes(entity, n, fill = mention_code)) + 
+  geom_col() +
+  coord_flip() +
+  labs(title = "Candidate Mentions Overall",
+       subtitle = "2018 Kantar TV ads data file with human coding",
+       caption = "Congress, Washington, Trump, H Clinton, Mueller,Paul Ryan (GOP Hse), Nancy Pelosi (Dem Hse),\nMitch McConnell(GOP Sen),Charles Schumer (Dem Sen), Obama, George Bush, Bill Clinton, Reagan",
+       x = "",
+       y = "")
+ggsave("../output/kantar_candidate_mentions_overall.png", width = 7, height = 4)
+
+tvads_count %>% 
+  group_by(entity) %>% 
+  mutate(perc = n/sum(n)) %>% 
+  ggplot(aes(mention_code, perc, fill = mention_code)) +
+  geom_col() +
+  scale_y_continuous(labels = percent_format()) + 
+  coord_flip() +
+  theme(legend.position = "none") + 
+  facet_wrap(~ entity, ncol = 5) +
+  labs(title = "Candidate Mentions Breakdown",
+       subtitle = "2018 Kantar TV ads data file with human coding", 
+       caption = "Congress, Washington, Trump, H Clinton, Mueller,Paul Ryan (GOP Hse), Nancy Pelosi (Dem Hse),\nMitch McConnell(GOP Sen),Charles Schumer (Dem Sen), Obama, George Bush, Bill Clinton, Reagan",
+       x = "",
+       y = "")
+ggsave("../output/kantar_candidate_mentions_breakdown.png", width = 8, height = 4)
+
+```
+
+
+# Incorporate our text
+```{r}
+library(tidytext)
+library(SnowballC)
+tvads_gcp <- read_csv("../data/tv-ads-kantar-meta/tv_ads_transcribed.csv")
+
+candMentioned <- function(x) {
+  if_else(x == 0, 0, 1)
+}
+candApproved <- function(x) {
+  if_else(x == 1, 1, 0)
+}
+candDisapproved <- function(x) {
+  if_else(x == 2, 1, 0)
+}
+
+# Might has lost some here on missed names
+tvads_text <- tvads %>% 
+  select(alt, link, congmt:reagan) %>% 
+  inner_join(tvads_gcp, by = c("alt" = "id"), keep = TRUE) %>% 
+  distinct(link, .keep_all = TRUE) %>% 
+  filter(rowSums(is.na(.)) < 13) %>% 
+  mutate_at(vars(congmt:reagan), .funs = list(ment = ~candMentioned(.),
+                                              approv = ~candApproved(.),
+                                              disapp = ~candDisapproved(.))) %>% 
+  mutate(hasApproved = select(., ends_with("_approv")) %>%
+           rowSums(),
+         hasApproved = if_else(hasApproved > 0, 1, 0),
+         hasDisapprov = select(., ends_with("_disapp")) %>% 
+           rowSums(),
+         hasDisapprov = if_else(hasDisapprov > 0, 1, 0)) %>%
+  select(-ends_with("_approv"), -ends_with("_disapp"))
+  
+# words_clean <- tvads_text %>% 
+#   unnest_tokens(word, transcript) %>% 
+#   anti_join(stop_words, by = 'word') %>% 
+#   filter(str_detect(word, "[a-z]")) %>% 
+#   mutate(word = wordStem(word))
+#   
+
+```
+
+
+
+
+# Exploring approve/disapprove
+
+```{r}
+words_clean <- tvads_text %>% 
+  filter(hasApproved + hasDisapprov == 1) %>% 
+  select(alt, link, hasApproved, transcript) %>% 
+  unnest_tokens(word, transcript) %>% 
+  anti_join(stop_words, by = 'word') %>% 
+  filter(str_detect(word, "[a-z]")) %>% 
+  mutate(word = wordStem(word))
+
+words_clean %>% 
+  group_by(hasApproved) %>% 
+  count(word, sort = TRUE) %>% 
+  top_n(20, n) %>% 
+  ungroup() %>% 
+  ggplot(aes(word, n)) +
+  geom_col() +
+  coord_flip() + 
+  facet_wrap(~ hasApproved, scales = "free")
+
+```
+
+
+
+
+# Exploring `prsment` in the text
+```{r}
+trump_words <- words_clean %>% 
+  select(alt, prsment, prsment_ment, word) %>% 
+  filter(!is.na(prsment_ment))
+
+
+
+trump_words %>% 
+  count(prsment_ment, word, sort = TRUE) %>% 
+  group_by(prsment_ment) %>% 
+  top_n(40, n) %>% 
+  ungroup() %>% 
+  mutate(word = fct_reorder(word, n, sum),
+         prsment_ment = factor(prsment_ment)) %>% 
+  ggplot(aes(word, n)) + 
+  geom_col() +
+  coord_flip() +
+  facet_wrap(~ prsment_ment, scales = 'free') +
+  labs(title = "Top words when Trump is mentioned")
+
+```
+
+* `tone` (ad_tone) and `prsment` don't agree
