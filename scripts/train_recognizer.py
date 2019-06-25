@@ -5,20 +5,7 @@ from sklearn import linear_model
 import sklearn.metrics as mt
 import sklearn.model_selection as ms
 from joblib import dump, load
-
-
-def encoding_to_df(json_fp):
-    '''Read JSON encoding file to Pandas df.'''
-    with open(json_fp) as f:
-        face_encodings = json.load(f)
-
-    df = pd.DataFrame.from_dict(face_encodings)
-    col_names = [f"ff_{x:03}" for x in range(128)]
-
-    df[col_names] = pd.DataFrame(df.encoding.values.tolist(), index=df.index)
-    df = df.drop(columns=['encoding'])
-
-    return df
+from wmp.analyze import faces
 
 
 def create_model():
@@ -27,7 +14,7 @@ def create_model():
     df = pd.DataFrame([])
 
     for p in glob.glob(persons):
-        df2 = encoding_to_df(p)
+        df2 = faces.encoding_df(json_fp=p)
         df = df.append(df2, ignore_index=True)
 
     train, test = ms.train_test_split(df, test_size=0.2, random_state=1234)
@@ -53,10 +40,10 @@ def create_model():
         "correct": [x == y for (x, y) in zip(test.name, y_pred)]
     })
 
-    rez.to_csv("../output/poi_pred.csv", index=False)
+    rez.to_csv("../output/poi_pred2.csv", index=False)
     print(mt.classification_report(y_test, y_pred))
 
-    dump(clf, "../models/poi_face_clf.joblib")
+    dump(clf, "../models/poi_face_clf2.joblib")
 
 
 def main():
