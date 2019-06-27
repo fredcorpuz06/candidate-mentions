@@ -2,6 +2,9 @@
 
 Code adapted from
 https://www.pyimagesearch.com/2017/12/04/how-to-create-a-deep-learning-dataset-using-google-images/
+
+Usage:
+    python pull_google_images -u clinton.txt
 '''
 # import the necessary packages
 from imutils import paths
