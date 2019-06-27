@@ -6,3 +6,4 @@ text data into a classifier pre-trained on text & video data collected by
 Kantar Media Group and sentiment coded by Wesleyan Media Project.
 
 '''
+import faces

@@ -14,8 +14,45 @@ import random
 import pandas as pd
 
 
-def encode_face(img_loc):
-    '''Encode 1 face in an input image.
+def encoding_df(face_dict=None, json_fp=None):
+    '''Convert dict (or dict saved as JSON) to Pandas df.'''
+    if face_dict == None:
+        with open(json_fp) as f:
+            face_dict = json.load(f)
+
+    df = pd.DataFrame(face_dict)
+    col_names = [f"ff_{x:03}" for x in range(128)]
+
+    try:
+        df[col_names] = pd.DataFrame(
+            df.encoding.values.tolist(), index=df.index)
+    except ValueError:
+        df[col_names] = df.reindex(columns=[col_names])
+
+    df = df.drop(columns=['encoding'])
+
+    return df
+
+
+def get_foldername(folder_path):
+    '''Extract foldername from file path.'''
+    strs = re.split("[^A-Za-z-_]", folder_path)
+    strs = list(filter(lambda x: x != "", strs))
+    return strs[-1]
+
+
+def get_filename(file_path):
+    '''Extract filename from file path.'''
+    strs = re.split("[//.]", file_path)
+    strs = list(filter(lambda x: x != "", strs))
+    return strs[-2]
+
+
+def encode_face(img_loc, multiple=False, frame_input=False):
+    '''Encode face/s in an input image. 
+
+    Defaults to looking exclusively for 1 face. Multiple option allows
+    flexibility to find no/multiple faces
 
     Parameters
     ----------
@@ -31,17 +68,31 @@ def encode_face(img_loc):
     --------
     >>> encode_face("trump_000.jpg")
     [-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308]
-
+    >>> encode_face("trump_000.jpg", multiple=True)
+    [[-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308]]
+    >>> encode_face("group_photo.jpg", multiple=True)
+    [
+        [-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308],
+        [-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308]
+    ]
     '''
-    image = cv2.imread(img_loc)
-    if image is None:
-        raise ValueError("Input image cannot be read by OpenCV.")
+    if not frame_input:
+        image = cv2.imread(img_loc)
+        if image is None:
+            raise ValueError("Input image cannot be read by OpenCV.")
+    else:
+        image = img_loc
 
     rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # dlib ordering (RGB)
     boxes = face_recognition.face_locations(
         rgb, model="hog")  # cnn or hog
 
     encodings = face_recognition.face_encodings(rgb, boxes)
+
+    if multiple:
+        face_encodings = [e.tolist() for e in encodings]
+        return face_encodings
+
     if len(encodings) == 0:
         raise FacesError("Input image contains no faces")
     elif len(encodings) > 1:
@@ -50,13 +101,6 @@ def encode_face(img_loc):
     face_encoding = encodings[0].tolist()
 
     return face_encoding
-
-
-def get_last_str(folder_path):
-    '''Extract rightmost complete string.'''
-    strs = re.split("[^A-Za-z-_]", folder_path)
-    strs = list(filter(lambda x: x != "", strs))
-    return strs[-1]
 
 
 def encode_person(image_folder):
@@ -77,12 +121,15 @@ def encode_person(image_folder):
     Examples
     --------
     >>> encode_person("google-images/blclinton")
-    [
-        [-0.17839303612709045, 0.2754783630371094, ...],
-        [-0.12661609045393930, 0.05347478363271094, ...],
-        ...
-    ]
-
+    {
+        "name": ["bclinton", "bclinton", ...],
+        "img_fp": ["bclinton_123.jpg", "bclinton_456.jpg", ...]
+        "encoding": [
+            [-0.17839303612709045, 0.2754783630371094, ...],
+            [-0.12661609045393930, 0.05347478363271094, ...],
+            ...
+        ]
+    }
     '''
     img_fps = f"{image_folder}/*.jpg"
     name = get_last_str(image_folder)
@@ -92,7 +139,8 @@ def encode_person(image_folder):
         try:
             encoding = encode_face(img_fp)
         except (ValueError, FacesError) as e:
-            print(f"{img_fp} raised {e}")
+            os.remove(img_fp)
+            print(f"{img_fp} deleted. Raised {e}")
         else:
             encodings.append(encoding)
             _, img_name = os.path.split(img_fp)
@@ -104,6 +152,108 @@ def encode_person(image_folder):
         "img_fp": valid_imgs,
         "encoding": encodings
     }
+
+
+def encode_images(image_folder, out_json=None):
+    '''Encode all faces in all images in a folder of unknowns.
+
+    Parameters
+    -----------
+    folder_path: str
+        Folder path
+
+    Returns
+    -------
+    image_encodings: dict, keys={"img_fp", "encoding"}
+        Dictionary with ordered lists of the images and encodings
+    Examples
+    --------
+    >>> encode_person("google-images/unknowns")
+    {
+        "img_fp": ["bclinton_123.jpg", "bclinton_456.jpg", ...]
+        "encoding": [
+            [-0.17839303612709045, 0.2754783630371094, ...],
+            [-0.12661609045393930, 0.05347478363271094, ...],
+            ...
+        ]
+    }
+    '''
+    img_fps = f"{image_folder}/*.jpg"
+
+    valid_imgs, encodings = [], []
+    for img_fp in glob.glob(img_fps):
+        try:
+            faces = encode_face(img_fp, multiple=True)
+        except ValueError as e:
+            print(f"{img_fp} raised {e}")
+        else:
+            _, img_name = os.path.split(img_fp)
+            for face in faces:
+                encodings.append(face)
+                valid_imgs.append(img_name)
+
+    assert len(valid_imgs) == len(
+        encodings), "Length of images and encodings don't match"
+
+    unknown_encodings = {
+        "img_fp": valid_imgs,
+        "encoding": encodings
+    }
+
+    if out_json:
+        with open(out_json, "w") as fp:
+            json.dump(unknown_encodings, fp, indent=4, sort_keys=True)
+
+    return unknown_encodings
+
+
+def encode_video(video_fp, down_factor=5, out_json=None):
+    '''Encode all faces in all frame in a video.
+
+    Parameters
+    ----------
+    video_fp: str
+        Video file path
+    down_factor: int
+        Downsample analysis of video frames by this integer factor (ie. only 
+        process every Nth frame)
+    out_json: str
+        Store `dict` results of encoding into a JSON at the specified filepath
+
+    Returns
+    -------
+    frame_encodings: dict, keys={`vid_frame`, `encoding`}
+        Dictionary with ordered list of video frames and encodings
+    '''
+    input_movie = cv2.VideoCapture(video_fp)
+    vid_name = get_filename(video_fp)
+
+    frame_number = 0
+    encodings, frame_faces = [], []
+
+    while True:
+        ret, frame = input_movie.read()
+        frame_number += 1
+
+        if not ret:
+            break
+        elif frame_number % down_factor != 0:
+            continue
+
+        found_faces = encode_face(frame, multiple=True, frame_input=True)
+        encodings += found_faces
+        frame_faces += [
+            f"{vid_name}_f{frame_number}" for _ in range(len(found_faces))]
+
+    input_movie.release()
+    cv2.destroyAllWindows()
+
+    vid_dict = {
+        "img_fp": frame_faces,
+        "encoding": encodings,
+    }
+
+    return vid_dict
 
 
 def delete_folder(folder_path):

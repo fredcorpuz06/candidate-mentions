@@ -1,83 +1,64 @@
 '''Detect references to a known face in images & videos.
-
 '''
-from wmp.analyze import faces
+from wmp.analyze import faces, classify
+from wmp.analyze.classify import PredictorError
 import argparse
 import joblib
 import pandas as pd
 import json
 import cv2
+import glob
+import numpy as np
 
 
-def handle_args():
-    parser = argparse.ArgumentParser(description="Find candidate references.")
-    parser.add_argument()
+def image_mentions(media_folder, clf_loc, out_csv=None):
 
-    args = parser.parse_args()
-
-    return args
-
-
-def find_mentions(media_folder, clf_loc, out_csv=None):
-
-    # Each found face in an image is a row
-    face_dict = faces.encode_unknowns(media_folder, f"{out_csv[:-4]}.json")
-    with open(f"{out_csv[:-4]}.json", "r") as fp:
-        face_dict = json.load(fp)
-
-    face_df = faces.encoding_df(face_dict)  # img_fp, ff_*  **, ...
-    X_new = face_df.drop(columns=["img_fp"])
-    clf = joblib.load(clf_loc)
-
-    y_pred = clf.predict(X_new)
-    rez = pd.DataFrame({
-        "img_fp": face_df.img_fp,
-        "y_pred": y_pred,
-    })
-
-    rez.to_csv(out_csv, index=False)
+    # face_dict = faces.encode_images(media_folder, f"{out_csv[:-4]}.json")
+    face_dict = faces.encode_images(media_folder)
+    _ = classify.classify_batch(face_dict, clf_loc, out_csv)
+    predicted_faces_df = classify.classify_batch(face_dict, clf_loc)
+    return predicted_faces_df
 
 
 def vid_mentions(vid_fp, clf_loc, down_factor=5):
-    input_movie = cv2.VideoCapture(vid_fp)
+    vid_dict = faces.encode_video(vid_fp)
+    # out_name = f"{vid_fp[:-4]}.csv"
+    # _ = classify.classify_batch(vid_dict, clf_loc, out_csv=out_name)
+    try:
+        predicted_faces_df = classify.classify_batch(vid_dict, clf_loc)
+    except PredictorError as e:
+        print(f"--- {vid_fp} skipped. Raised {e}")
+        predicted_faces_df = pd.DataFrame({
+            "img_fp": [faces.get_filename(vid_fp)],
+            "y_pred": [np.nan]
+        })
 
-    frame_number = 0
-    found_faces = []
-    while True:
-        ret, frame = input_movie.read()
-        frame_number += 1
+    return predicted_faces_df
 
-        if not ret:
-            break
-        elif frame_number % down_factor != 0:
-            continue
-        print(frame_number)
-        found_faces += faces.encode_face(
-            frame, multiple=True, frame_input=True)
 
-    input_movie.release()
-    cv2.destroyAllWindows()
+def multimedia_mentions(media_folder, clf_loc, out_csv=None):
+    print(f"Processing images in {media_folder}")
+    images_predicted = image_mentions(media_folder, clf_loc, out_csv=out_csv)
 
-    print(f"Found {len(found_faces)} faces")
-    input_locs = [f"{vid_fp}_{i:03}" for i in range(len(found_faces))]
+    videos_predicted = pd.DataFrame([])
+    vid_fps = f"{media_folder}/*.mp4"
 
-    vid_dict = {
-        "img_fp": input_locs,
-        "encoding": found_faces
-    }
+    for vid_fp in glob.glob(vid_fps):
+        print(f"Processing {vid_fp}")
+        vid_pred = vid_mentions(vid_fp, clf_loc, down_factor=30)
+        vid_pred_summary = pd.DataFrame({
+            "img_fp": vid_pred.img_fp[0],
+            "y_pred": [vid_pred.y_pred.unique().tolist()]
+        })
+        videos_predicted = videos_predicted.append(
+            vid_pred_summary, ignore_index=True)
 
-    vid_df = faces.encoding_df(vid_dict)
-    X_new = vid_df.drop(columns=["img_fp"])
+    multi_predicted = images_predicted.append(
+        videos_predicted, ignore_index=True)
+    if out_csv:
+        multi_predicted.to_csv(out_csv, index=False)
 
-    clf = joblib.load(clf_loc)
-
-    y_pred = clf.predict(X_new)
-    rez = pd.DataFrame({
-        "img_fp": vid_df.img_fp,
-        "y_pred": y_pred,
-    })
-
-    rez.to_csv(f"{vid_fp[:-4]}.csv", index=False)
+    return multi_predicted
 
 
 def main():
@@ -86,12 +67,15 @@ def main():
     MEDIA_OUT = "../output/og_medias.csv"
     FACE_CLASSIFIER = "../models/poi_face_clf2.joblib"
     # Image classifier
-    # mentions_df = find_mentions(
-    #     MEDIA_FOLDER, FACE_CLASSIFIER, out_csv=MEDIA_OUT)
+    # _ = image_mentions(MEDIA_FOLDER, FACE_CLASSIFIER, out_csv=MEDIA_OUT)
 
     # Video classifier
-    SAMPLE_VID = "../data/young_man.mp4"
-    rez = vid_mentions(SAMPLE_VID, FACE_CLASSIFIER, down_factor=10)
+    SAMPLE_VID = "../data/sample-vid-reference/trump_still.mp4"
+    # _ = vid_mentions(SAMPLE_VID, FACE_CLASSIFIER, down_factor=10)
+
+    # Multimedia classifier
+    _ = multimedia_mentions(MEDIA_FOLDER, FACE_CLASSIFIER, out_csv=MEDIA_OUT)
+    # print(faces.get_filename("../data/sample-vid-reference/trump_still.mp4"))
 
 
 if __name__ == "__main__":
