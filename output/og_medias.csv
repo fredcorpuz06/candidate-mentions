@@ -1,0 +1,145 @@
+img_fp,y_pred
+1001089780064419_image1.jpg,others
+1001361843322474_image1.jpg,others
+1001681710220448_image0.jpg,heller
+1001681710220448_image1.jpg,heller
+1003259589845697_image0.jpg,heller
+1003259589845697_image1.jpg,trump
+1003259589845697_image1.jpg,others
+1004110986429838_image1.jpg,others
+1004765339691483_image1.jpg,others
+1004765339691483_image1.jpg,others
+1005300876315360_image0.jpg,manchin
+1005394629643552_image0.jpg,others
+1005394629643552_image1.jpg,others
+1005394629643552_image1.jpg,others
+1005394629643552_image1.jpg,others
+1005394629643552_image1.jpg,others
+1005394629643552_image1.jpg,others
+1005394629643552_image1.jpg,others
+1005723392933548_image1.jpg,braun
+1006607639521904_image1.jpg,others
+1006619692850532_image0.jpg,others
+1007705609401263_image0.jpg,manchin
+1007962776052328_image0.jpg,trump
+1008372119347745_image1.jpg,others
+1008535605992978_image0.jpg,others
+1009167092602041_image1.jpg,others
+1009987902499440_image0.jpg,others
+1009987902499440_image1.jpg,others
+1010616342430062_image1.jpg,braun
+1010837942436725_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010950745744713_image1.jpg,others
+1010971142400272_image1.jpg,others
+1010988325772630_image0.jpg,others
+1012197315571587_image0.jpg,others
+1012335195620897_image1.jpg,braun
+1012374058961348_image2.jpg,others
+1012374058961348_image2.jpg,others
+1012374058961348_image2.jpg,others
+1013447065504847_image0.jpg,heller
+1015144678649627_image0.jpg,others
+1015144678649627_image1.jpg,others
+1015878005260848_image1.jpg,others
+1016048838544847_image0.jpg,others
+1016048838544847_image1.jpg,others
+1016687185206108_image0.jpg,others
+1017538398439187_image1.jpg,pelosi
+1018555778354526_image0.jpg,heller
+1018555778354526_image1.jpg,heller
+og-ad-media\1000173490163320_video0_f5,['others']
+og-ad-media\1000419116826300_video0,[nan]
+og-ad-media\1000503540130144_video0,[nan]
+og-ad-media\1000869713437051_video0_f5,['others']
+og-ad-media\1000963010083764_video0_f55,"['braun', 'others']"
+og-ad-media\1001032080102220_video0_f175,['trump']
+og-ad-media\1001191406750702_video0_f15,"['others', 'pelosi']"
+og-ad-media\1001470993347533_video0_f80,['others']
+og-ad-media\1001724936676877_video0_f20,"['manchin', 'trump']"
+og-ad-media\1001740146695527_video0_f105,['others']
+og-ad-media\1002457659939252_video0_f5,"['others', 'braun']"
+og-ad-media\1002483706590973_video0,[nan]
+og-ad-media\1002957363244712_video0_f5,"['others', 'pelosi']"
+og-ad-media\1003075043234298_video0,[nan]
+og-ad-media\1003529536479405_video0_f140,"['manchin', 'trump']"
+og-ad-media\1003567406520085_video0_f175,['trump']
+og-ad-media\1003621443136234_video0_f5,['braun']
+og-ad-media\1003716946481729_video0,[nan]
+og-ad-media\1004232953089516_video0_f5,"['others', 'trump']"
+og-ad-media\1004256989756977_video0_f5,"['others', 'obama']"
+og-ad-media\1004556403086905_video0_f5,"['pelosi', 'others']"
+og-ad-media\1004839723028288_video0_f5,['others']
+og-ad-media\1004975609674430_video0_f5,"['others', 'hclinton']"
+og-ad-media\1005083229686313_video0_f10,['others']
+og-ad-media\1005300876315360_video0_f10,"['others', 'manchin']"
+og-ad-media\1006187769570070_video0_f25,['others']
+og-ad-media\1006475452876853_video0_f45,"['others', 'pelosi']"
+og-ad-media\1006500796199028_video0_f50,['others']
+og-ad-media\1006515582855871_video0_f5,"['others', 'trump']"
+og-ad-media\1006750852830157_video0_f75,['others']
+og-ad-media\1007508692754656_video0_f15,"['trump', 'others']"
+og-ad-media\1007942099366005_video0_f5,['others']
+og-ad-media\1007962776052328_video0_f5,"['trump', 'mueller', 'others']"
+og-ad-media\1008520715974996_video0_f5,['others']
+og-ad-media\1008659115964796_video0_f5,"['others', 'trump']"
+og-ad-media\1008692639336145_video0,[nan]
+og-ad-media\1008893752615738_video0_f5,['others']
+og-ad-media\1009229619280454_video0,[nan]
+og-ad-media\1009367229248956_video0,[nan]
+og-ad-media\1009557312550426_video0_f15,"['others', 'pelosi']"
+og-ad-media\1009625359244847_video0_f210,['others']
+og-ad-media\1009625692573590_video0,[nan]
+og-ad-media\1009844869226263_video0_f5,['others']
+og-ad-media\1010394992453685_video0_f250,['others']
+og-ad-media\1010635882449174_video0,[nan]
+og-ad-media\1010917415747434_video0_f20,"['others', 'trump']"
+og-ad-media\1010988325772630_video0_f5,['others']
+og-ad-media\1011046039097150_video0,[nan]
+og-ad-media\1011061875732925_video0_f5,['others']
+og-ad-media\1011464519032423_video0_f45,"['others', 'hclinton']"
+og-ad-media\1011810042360464_video0_f10,"['others', 'trump']"
+og-ad-media\1012131992292326_video0,[nan]
+og-ad-media\1012229562286915_video0_f15,['others']
+og-ad-media\1013188762198897_video0_f15,"['others', 'trump', 'bclinton', 'sanders']"
+og-ad-media\1013253415544363_video0_f285,"['others', 'mueller']"
+og-ad-media\1013447065504847_video0_f5,['others']
+og-ad-media\1013971672143584_video0,[nan]
+og-ad-media\1014433295394260_video0,[nan]
+og-ad-media\1015096051996276_video0_f10,"['others', 'trump']"
+og-ad-media\1015726655288523_video0_f5,['pelosi']
+og-ad-media\1015858305279704_video0,[nan]
+og-ad-media\1015869795247116_video0_f5,"['others', 'trump']"
+og-ad-media\1015922038589767_video0_f75,"['trump', 'others']"
+og-ad-media\1016152151878838_video0_f85,['others']
+og-ad-media\1016303871883607_video0_f15,"['others', 'trump']"
+og-ad-media\1016467868515034_video0_f5,"['others', 'trump', 'mcconnell', 'bclinton']"
+og-ad-media\1016818101829542_video0_f20,['others']
+og-ad-media\1016899821827969_video0,[nan]
+og-ad-media\1017685918410033_video0,[nan]
+og-ad-media\1017946381720887_video0_f55,['others']
+og-ad-media\1017948438365937_video0_f20,['others']
+og-ad-media\1018314171678173_video0,[nan]
+og-ad-media\1018863271610705_video0_f75,['others']
