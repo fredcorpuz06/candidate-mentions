@@ -306,6 +306,27 @@ def save_encodings(person_encodings, out_fp):
         json.dump(person_encodings, fp, indent=4, sort_keys=True)
 
 
+def crop_face(img_loc, out_folder):
+    '''Crops all faces in an image and writes cropped face to JPG.'''
+    _, name = os.path.split(img_loc)
+    new_name = f"{name.split('.')[0]}_cropped"
+    image = cv2.imread(img_loc)
+    if image is None:
+        raise ValueError("Input image cannot be read by OpenCV.")
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # dlib ordering (RGB)
+    boxes = face_recognition.face_locations(
+        rgb, model="hog")  # cnn or hog
+
+    pad_perc = 0.35
+    for idx, (top, right, bottom, left) in enumerate(boxes):
+        l_pad = int((bottom - top) * pad_perc)
+        w_pad = int((right - left) * pad_perc)
+        face = image[(top-l_pad):(bottom+l_pad), (left-w_pad):(right+w_pad)]
+        # cv2.imshow("cropped", face)
+        # cv2.waitKey(0)
+        cv2.imwrite(f"{out_folder}/{new_name}_{idx:02}.jpg", face)
+
+
 class Error(Exception):
     '''Base class for other errors in this module.'''
     pass

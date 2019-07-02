@@ -2,6 +2,7 @@ scratch.*
 config/
 data/
 models/
+notes/
 .vscode/
 .ipynb_checkpoints/
 __pycache__/
