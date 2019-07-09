@@ -6,12 +6,154 @@ import cv2
 import json
 
 import re
-from collections import Counter
+from collections import Counter, namedtuple
 import glob
 import os
 import shutil
 import random
 import pandas as pd
+import numpy as np
+import functools
+
+from ..util import filepaths
+
+Box = namedtuple("Box", ['top', 'right', 'bottom', 'left'])
+
+
+def create_trainset(in_folder, out_folder, reference_face):
+    '''Creates a folder of cropped face images of a single person.
+    '''
+    img_locs = glob.glob(f"{in_folder}/*.*")
+    for img_loc in img_locs:
+        try:
+            faces = encode_image(img_loc)
+        except ValueError as e:
+            print(f"--- {img_loc} has {e}")
+
+        for face in faces:
+            same_person = face.compare_to(reference_face)
+            if same_person:
+                face.write_face(
+                    f"{out_folder}/{face.source_filename}_cropped.jpg")
+    return out_folder
+
+
+def read_cv2_image(input_data, rgb=False):
+    '''Reads image from file or openCV image data type.
+    '''
+    if isinstance(input_data, str):
+        image_data = cv2.imread(input_data)
+    else:  # frame from video
+        image_data = input_data
+
+    if image_data is None:
+        raise ValueError("Input image cannot be read by OpenCV.")
+
+    if rgb:
+        # dlib ordering (RGB)
+        image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
+
+    return image_data
+
+
+def encode_image(input_image):
+    '''Encode face/s in an input image. 
+
+    Defaults to looking exclusively for 1 face. Multiple option allows
+    flexibility to find no/multiple faces
+
+    Parameters
+    ----------
+    img_loc: str/cv2.image
+        File path of image.
+
+    Returns
+    -------
+    list 
+        Face encoding in a 128-length float list.
+
+    Examples
+    --------
+    >>> encode_face("trump_000.jpg")
+    [-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308]
+    >>> encode_face("trump_000.jpg", multiple=True)
+    [[-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308]]
+    >>> encode_face("group_photo.jpg", multiple=True)
+    [
+        [-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308],
+        [-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308]
+    ]
+    '''
+    try:
+        image_data = read_cv2_image(input_image)
+    except ValueError as e:
+        return []
+
+    rgb = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
+    boxes = face_recognition.face_locations(rgb, model="hog")  # cnn or hog
+    encodings = face_recognition.face_encodings(rgb, boxes)
+
+    faces = [Face(box, enc, image_data) for box, enc in zip(boxes, encodings)]
+
+    for face in faces:
+        face.source_filename = filepaths.get_filename(input_image)
+
+    return faces
+
+
+class Face:
+
+    def __init__(self, box, encoding, full_image):
+        self.box = Box._make(box)
+        self.encoding = encoding
+        self.image_data = self._crop_face(full_image, pad_perc=0.35)
+        self.source_filename = None
+        self.name = None
+
+    def __repr__(self):
+        return (f"Face(image_source={self.source_filename}, "
+                f"box={self.box}, name={self.name})")
+
+    def _crop_face(self, input_data, pad_perc=None):
+        '''Crops image to a box around found face w/ optional padding.'''
+        image = read_cv2_image(input_data)
+        if pad_perc:
+            l, w, *_ = image.shape
+            l_pad = int((self.box.bottom - self.box.top) * pad_perc)
+            w_pad = int((self.box.right - self.box.left) * pad_perc)
+            top_pad = max(self.box.top - l_pad, 0)
+            bottom_pad = min(self.box.bottom + l_pad, l)
+            left_pad = max(self.box.left - w_pad, 0)
+            right_pad = min(self.box.right + w_pad, w)
+
+            return image[top_pad:bottom_pad, left_pad:right_pad]
+        else:
+            return image[self.box.top:self.box.bottom,
+                         self.box.left:self.box.right]
+        # cv2.imshow("cropped", self.image)
+        # cv2.waitKey(0)
+
+    def tag_source(self, file_loc, frame_num=None):
+        '''Mark file source of found face.'''
+        file_name = filepaths.get_filename(file_loc)
+        if frame_num is not None:
+            return f"Vid: {file_name}; Frame: {frame_num}"
+        else:
+            return f"Img: {file_name}"
+
+    def compare_to(self, other_face, threshold=0.6):
+        '''Determines if the two encoded faces are of the same person.
+
+        Uses Euclidian distance of the two 128d face encodings and a threshold
+        value to determine similarity.
+        '''
+        distance = np.linalg.norm(self.encoding - other_face.encoding)
+        return distance < threshold
+
+    def write_face(self, output_loc):
+        '''Writes image of cropped face to output location'''
+        cv2.imwrite(output_loc, self.image_data)
+        print(f"Wrote cropped face to {output_loc}")
 
 
 def encoding_df(face_dict=None, json_fp=None):
@@ -34,76 +176,56 @@ def encoding_df(face_dict=None, json_fp=None):
     return df
 
 
-def get_foldername(folder_path):
-    '''Extract foldername from file path.'''
-    strs = re.split("[^A-Za-z-_]", folder_path)
-    strs = list(filter(lambda x: x != "", strs))
-    return strs[-1]
-
-
-def get_filename(file_path):
-    '''Extract filename from file path.'''
-    strs = re.split("[//.]", file_path)
-    strs = list(filter(lambda x: x != "", strs))
-    return strs[-2]
-
-
-def encode_face(img_loc, multiple=False, frame_input=False):
-    '''Encode face/s in an input image. 
-
-    Defaults to looking exclusively for 1 face. Multiple option allows
-    flexibility to find no/multiple faces
+def encode_video(video_fp, down_factor=5, out_json=None):
+    '''Encode all faces in all frame in a video.
 
     Parameters
     ----------
-    img_loc: str
-        File path of image.
+    video_fp: str
+        Video file path
+    down_factor: int
+        Downsample analysis of video frames by this integer factor (ie. only 
+        process every Nth frame)
+    out_json: str
+        Store `dict` results of encoding into a JSON at the specified filepath
 
     Returns
     -------
-    list 
-        Face encoding in a 128-length float list.
-
-    Examples
-    --------
-    >>> encode_face("trump_000.jpg")
-    [-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308]
-    >>> encode_face("trump_000.jpg", multiple=True)
-    [[-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308]]
-    >>> encode_face("group_photo.jpg", multiple=True)
-    [
-        [-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308],
-        [-0.17839303612709045, 0.2754783630371094, ..., 0.022344175726175308]
-    ]
+    frame_encodings: dict, keys={`vid_frame`, `encoding`}
+        Dictionary with ordered list of video frames and encodings
     '''
-    if not frame_input:
-        image = cv2.imread(img_loc)
-        if image is None:
-            raise ValueError("Input image cannot be read by OpenCV.")
-    else:
-        image = img_loc
+    input_movie = cv2.VideoCapture(video_fp)
+    vid_name = get_filename(video_fp)
 
-    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # dlib ordering (RGB)
-    boxes = face_recognition.face_locations(
-        rgb, model="hog")  # cnn or hog
+    frame_number = 0
+    encodings, frame_faces = [], []
 
-    encodings = face_recognition.face_encodings(rgb, boxes)
+    while True:
+        ret, frame = input_movie.read()
+        frame_number += 1
 
-    if multiple:
-        face_encodings = [e.tolist() for e in encodings]
-        return face_encodings
+        if not ret:
+            break
+        elif frame_number % down_factor != 0:
+            continue
 
-    if len(encodings) == 0:
-        raise FacesError("Input image contains no faces")
-    elif len(encodings) > 1:
-        raise FacesError("Input image contains multiple faces")
+        found_faces = encode_face(frame, multiple=True)
+        encodings += found_faces
+        frame_faces += [
+            f"{vid_name}_f{frame_number}" for _ in range(len(found_faces))]
 
-    face_encoding = encodings[0].tolist()
+    input_movie.release()
+    cv2.destroyAllWindows()
 
-    return face_encoding
+    vid_dict = {
+        "img_fp": frame_faces,
+        "encoding": encodings,
+    }
+
+    return vid_dict
 
 
-def encode_person(image_folder):
+def encode_knowns(image_folder):
     '''Encode all images of single person in a folder.
 
     Parameters:
@@ -154,7 +276,7 @@ def encode_person(image_folder):
     }
 
 
-def encode_images(image_folder, out_json=None):
+def encode_unknowns(image_folder, out_json=None):
     '''Encode all faces in all images in a folder of unknowns.
 
     Parameters
@@ -207,81 +329,6 @@ def encode_images(image_folder, out_json=None):
     return unknown_encodings
 
 
-def encode_video(video_fp, down_factor=5, out_json=None):
-    '''Encode all faces in all frame in a video.
-
-    Parameters
-    ----------
-    video_fp: str
-        Video file path
-    down_factor: int
-        Downsample analysis of video frames by this integer factor (ie. only 
-        process every Nth frame)
-    out_json: str
-        Store `dict` results of encoding into a JSON at the specified filepath
-
-    Returns
-    -------
-    frame_encodings: dict, keys={`vid_frame`, `encoding`}
-        Dictionary with ordered list of video frames and encodings
-    '''
-    input_movie = cv2.VideoCapture(video_fp)
-    vid_name = get_filename(video_fp)
-
-    frame_number = 0
-    encodings, frame_faces = [], []
-
-    while True:
-        ret, frame = input_movie.read()
-        frame_number += 1
-
-        if not ret:
-            break
-        elif frame_number % down_factor != 0:
-            continue
-
-        found_faces = encode_face(frame, multiple=True, frame_input=True)
-        encodings += found_faces
-        frame_faces += [
-            f"{vid_name}_f{frame_number}" for _ in range(len(found_faces))]
-
-    input_movie.release()
-    cv2.destroyAllWindows()
-
-    vid_dict = {
-        "img_fp": frame_faces,
-        "encoding": encodings,
-    }
-
-    return vid_dict
-
-
-def delete_folder(folder_path):
-    shutil.rmtree(folder_path)
-
-
-def sample_images(input_folder, output_folder, nimages=10, seed=1234):
-    '''Take random sample of images from labelled directory of images.'''
-    persons = glob.glob(f"{input_folder}/*/")
-
-    all_images = []
-    for p in persons:
-        img_fps = f"{p}/*.jpg"
-        for img_fp in glob.glob(img_fps):
-            all_images.append(img_fp)
-
-    if os.path.exists(output_folder):
-        delete_folder(output_folder)
-    os.makedirs(output_folder)
-
-    random.seed(seed)
-    sample_imgs = random.sample(all_images, nimages)
-    for img in sample_imgs:
-        _, name = os.path.split(img)
-        output_file = f"{output_folder}/{name}"
-        shutil.copyfile(img, output_file)
-
-
 def save_encodings(person_encodings, out_fp):
     '''Save names and encodings to a JSON file.
 
@@ -304,27 +351,6 @@ def save_encodings(person_encodings, out_fp):
 
     with open(out_fp, "w") as fp:
         json.dump(person_encodings, fp, indent=4, sort_keys=True)
-
-
-def crop_face(img_loc, out_folder):
-    '''Crops all faces in an image and writes cropped face to JPG.'''
-    _, name = os.path.split(img_loc)
-    new_name = f"{name.split('.')[0]}_cropped"
-    image = cv2.imread(img_loc)
-    if image is None:
-        raise ValueError("Input image cannot be read by OpenCV.")
-    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # dlib ordering (RGB)
-    boxes = face_recognition.face_locations(
-        rgb, model="hog")  # cnn or hog
-
-    pad_perc = 0.35
-    for idx, (top, right, bottom, left) in enumerate(boxes):
-        l_pad = int((bottom - top) * pad_perc)
-        w_pad = int((right - left) * pad_perc)
-        face = image[(top-l_pad):(bottom+l_pad), (left-w_pad):(right+w_pad)]
-        # cv2.imshow("cropped", face)
-        # cv2.waitKey(0)
-        cv2.imwrite(f"{out_folder}/{new_name}_{idx:02}.jpg", face)
 
 
 class Error(Exception):

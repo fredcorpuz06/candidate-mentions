@@ -36,19 +36,19 @@ import time
 import os
 
 from .download import FileDownload
+from ..util import filepaths
 
 
 class WebPage:
+    _WAIT_SECS = 3
 
     def __init__(self, webdriver_loc, out_folder):
         self.browser = self._prep_browser(webdriver_loc)
-        self.out_folder = self._create_folder(out_folder)
+        self.out_folder = filepaths.create_folder(out_folder)
         self.getter = FileDownload()
 
     def _prep_browser(self, webdriver_loc):
         '''Opens headless chrome.
-
-        TO DO: create parent class with common Selenium functionality
         '''
         opts = webdriver.ChromeOptions()
         opts.add_argument('headless')
@@ -59,12 +59,6 @@ class WebPage:
         opts.add_argument('log-level=3')  # supress STOP from Fb
         browser = webdriver.Chrome(options=opts, executable_path=webdriver_loc)
         return browser
-
-    def _create_folder(self, out_folder):
-        if not os.path.exists(out_folder):
-            os.makedirs(out_folder)
-
-        return out_folder
 
     def _get_by_css(self, css):
         '''Wait for element to load'''
@@ -104,7 +98,6 @@ class Facebook(WebPage):
     _SPONSOR_CSS = "._7pg4"
     _BODY_IMG_CSS = "._7jys"
     _BODY_VID_TAG = "video"
-    _WAIT_SECS = 3
     AD_FIELDS = [
         "ad_id", "sponsor", "image", "video",
         "sshot_loc", "sponsor_loc", "image_loc", "video_loc"]
@@ -244,33 +237,43 @@ class GoogleImages(WebPage):
         search_term = "+".join(query_str.split())
         return f"https://www.google.com/search?q={search_term}&tbm=isch"
 
-    def _format_name(self, query_str, num=None):
+    def _format_name(self, query_str, num=None, raw=False):
         basename = "_".join(query_str.split())
+        if raw:
+            return f"{basename}_raw"
         if num is not None:
             return f"{basename}_{num:03}"
         return basename
 
     def image_search(self, query, nimages=10):
         uri = self._format_query(query)
-        base_name = self._format_name(query)
+        base_name = self._format_name(query, raw=True)
         person_folder = f"{self.out_folder}/{base_name}"
-        self._create_folder(person_folder)
+        filepaths.create_folder(person_folder)
 
         self.browser.get(uri)
         self._scroll_bottom()
 
-        img_ids = self.get_image_ids()
+        image_pointers = self.get_image_pointers()
         img_links = OrderedDict()
-        for img_id in img_ids[:nimages]:
-            potential_links = self.get_image_link(uri, img_id)
+        for img_id, data_src_link in image_pointers[:nimages]:
+            if img_id != "":
+                potential_links = self.get_image_link(uri, img_id)
+            elif data_src_link is not None:
+                potential_links = [data_src_link]
+
             for pl in potential_links:
                 img_links[pl] = ""
-
+        # print(img_links)
+        print(
+            f"You are downloading the first {len(img_links)} Google image results")
         for idx, (link, _) in enumerate(img_links.items()):
             self.getter.download_image(
                 link, person_folder,
-                self._format_name(base_name, num=idx),
+                self._format_name(query, num=idx),
                 default_format="jpg")
+
+        return person_folder
 
     def _scroll_bottom(self):
         '''Scrolls to the bottom of the webpage.
@@ -287,11 +290,13 @@ class GoogleImages(WebPage):
                 break
             last_height = new_height
 
-    def get_image_ids(self):
+    def get_image_pointers(self):
         ms = self.browser.find_elements_by_css_selector(self._IMAGE_CSS)
+        print(f"There are {len(ms)} Google image results on this page")
         all_ids = [m.get_attribute("id") for m in ms]
-        all_ids = [i for i in all_ids if (i is not "") & (i is not None)]
-        return all_ids
+        data_src_links = [m.get_attribute("data-src") for m in ms]
+
+        return list(zip(all_ids, data_src_links))
 
     def get_image_link(self, uri, img_id):
         container_link = f"{uri}#imgrc={img_id}"
@@ -299,4 +304,5 @@ class GoogleImages(WebPage):
         time.sleep(0.5)
         ms = self.browser.find_elements_by_css_selector(
             self._CONTAINER_IMG_CSS)
-        return [m.get_attribute("src") for m in ms]
+
+        return [m.get_attribute("src") for m in ms] 
