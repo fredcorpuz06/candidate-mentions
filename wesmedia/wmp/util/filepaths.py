@@ -59,40 +59,21 @@ def replace_spaces(my_string, substitute="_"):
     return my_string.strip().replace(" ", substitute)
 
 
-def get_folder(folder_path):
-    '''Extract foldername from file path.
-
-    TO DO: make robust to folder paths w/ & w/o files +
-    make sure it uses the ENTIRE file path
-
-    Examples
-    --------
-    >>> get_folder("candidate-mentions/data/google-images")
-    "google-images"
-    >>> get_folder("../data/google-images/cand_images.xlsx")
-    "google-images"
-    >>> get_folder("../random_file")
-    ""
-    '''
-    strs = re.split("[^A-Za-z-_]", folder_path)
-    strs = list(filter(lambda x: x != "", strs))
-    return strs[-1]
-
-
-def get_filename(file_path):
+def get_filename(file_path, remove_ext=False):
     '''Extract filename from file path.'''
-    # strs = re.split("[//.]", file_path)
-    # strs = list(filter(lambda x: x != "", strs))
-    # return strs[-2]
     _, filename = os.path.split(file_path)
-    return filename.split(".")[0]
+    if remove_ext:
+        return filename.split(".")[0]
+    else:
+        return filename
 
 
 def delete_folder(d):
     '''
     TO DO: assert that this is a folder
     '''
-    shutil.rmtree(d)
+    if os.path.exists(d):
+        shutil.rmtree(d)
 
 
 def find_matching_file(dir, file_regex):
@@ -123,28 +104,5 @@ def split_list(xs, split_size=None, split_prop=None, random_state=1234):
     return left, right
 
 
-def sample_files(
-        input_folder, output_folder, type_restriction,
-        nimages=10, seed=1234):
-    '''Take random sample of images from labelled directory of images.
-
-    TO DO: generalize sampling to list of file types
-    '''
-    persons = glob.glob(f"{input_folder}/*/")
-
-    all_images = []
-    for p in persons:
-        img_fps = f"{p}/*.jpg"
-        for img_fp in glob.glob(img_fps):
-            all_images.append(img_fp)
-
-    if os.path.exists(output_folder):
-        delete_folder(output_folder)
-    os.makedirs(output_folder)
-
-    random.seed(seed)
-    sample_imgs = random.sample(all_images, nimages)
-    for img in sample_imgs:
-        _, name = os.path.split(img)
-        output_file = f"{output_folder}/{name}"
-        shutil.copyfile(img, output_file)
+def listdir_full(d):
+    return [os.path.join(d, sub) for sub in os.listdir(d)]
