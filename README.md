@@ -1,13 +1,11 @@
-# Candidate Text & Image/Video Mentions
-Find candidate-related ads through text and image analysis, where candidates are either mentioned in ad text or appear in an image.
+# Detecting Candidate Mentions
 
-## Sample Output
-Creating a csv file with every row as a found reference in the image and/or text of the ad to a politician
+Since 2010, the Wesleyan Media Project has been a “go-to” source of data on political advertising across the United States. The explosive growth of advertising on social media has made manually coding 100+ variables on candidate references, issue references, sentiment, etc. laborious and expensive.
 
-ad_id | text_reference | image_reference
---- | --- | ---
-15007 | Donald Trump | NA
-15007 | Hillary Clinton | Hillary Clinton
-15007 | NA | Bernie Sanders
-17009 | Donald Trump | Donald Trump
-18020 | NA | NA
+Code in the **wmp package** is being developed to utilizing sentiment analysis of text references and face recognition to reduce time and cost necessary for campaign ad research.
+
+## Faces in Political Advertisements
+
+Our results show that automated face recognition can dramatically reduce the time and cost necessary for campaign ad research and 100% accuracy can be achieved with minimal human correction.
+
+![hello](assets/corpuz_poster.jpg)
